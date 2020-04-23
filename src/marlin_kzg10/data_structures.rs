@@ -138,7 +138,9 @@ impl<E: PairingEngine> PCVerifierKey for VerifierKey<E> {
     Eq(bound = "")
 )]
 pub struct Commitment<E: PairingEngine> {
+    /// Commitment
     pub comm: kzg10::Commitment<E>,
+    /// Shifted Commitment
     pub shifted_comm: Option<kzg10::Commitment<E>>,
 }
 
