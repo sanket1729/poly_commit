@@ -47,7 +47,7 @@ pub(crate) fn shift_polynomial<E: PairingEngine>(
 
 impl<E: PairingEngine> MarlinKZG10<E> {
     /// MSM for `commitments` and `coeffs`
-    fn combine_commitments<'a>(
+    pub fn combine_commitments<'a>(
         coeffs_and_comms: impl IntoIterator<Item = (E::Fr, &'a Commitment<E>)>,
     ) -> (E::G1Projective, E::G1Projective) {
         let mut combined_comm = E::G1Projective::zero();
@@ -390,7 +390,6 @@ impl<E: PairingEngine> PolynomialCommitment<E::Fr> for MarlinKZG10<E> {
             labels.insert(label);
         }
         assert_eq!(proof.len(), query_to_labels_map.len());
-
         let mut combined_comms = Vec::new();
         let mut combined_queries = Vec::new();
         let mut combined_evals = Vec::new();
@@ -400,6 +399,7 @@ impl<E: PairingEngine> PolynomialCommitment<E::Fr> for MarlinKZG10<E> {
             let mut comms_to_combine: Vec<&'_ LabeledCommitment<_>> = Vec::new();
             let mut values_to_combine = Vec::new();
             for label in labels.into_iter() {
+                // dbg!(label);
                 let commitment =
                     commitments
                         .get(label)
@@ -409,7 +409,8 @@ impl<E: PairingEngine> PolynomialCommitment<E::Fr> for MarlinKZG10<E> {
                 let degree_bound = commitment.degree_bound();
                 assert_eq!(
                     degree_bound.is_some(),
-                    commitment.commitment().shifted_comm.is_some()
+                    commitment.commitment().shifted_comm.is_some(),
+                    "Maybe this failed {}{}", degree_bound.is_some(), commitment.commitment().shifted_comm.is_some()
                 );
 
                 let v_i = values.get(&(label.clone(), *query)).ok_or(
