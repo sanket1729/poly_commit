@@ -157,6 +157,49 @@ impl<E: PairingEngine> KZG10<E> {
         Ok((Commitment(commitment.into()), randomness))
     }
 
+    /// Outputs a commitment to `polynomial`.
+    pub fn commit_with_rand(
+        powers: &Powers<E>,
+        polynomial: &Polynomial<E::Fr>,
+        hiding_bound: Option<usize>,
+        blinding_poly: Polynomial<E::Fr>,
+        rng: Option<&mut dyn RngCore>,
+    ) -> Result<(Commitment<E>, Randomness<E>), Error> {
+        Error::check_degree_is_within_bounds(polynomial.degree(), powers.size())?;
+
+        let commit_time = start_timer!(|| format!(
+            "Committing to polynomial of degree {} with hiding_bound: {:?}",
+            polynomial.degree(),
+            hiding_bound,
+        ));
+
+        let (num_leading_zeros, plain_coeffs) =
+            skip_leading_zeros_and_convert_to_bigints(&polynomial);
+
+        let msm_time = start_timer!(|| "MSM to compute commitment to plaintext poly");
+        let mut commitment = VariableBaseMSM::multi_scalar_mul(
+            &powers.powers_of_g[num_leading_zeros..],
+            &plain_coeffs,
+        );
+        end_timer!(msm_time);
+
+        let mut randomness = Randomness{
+            blinding_polynomial: blinding_poly,
+        };
+
+        let random_ints = convert_to_bigints(&randomness.blinding_polynomial.coeffs);
+        let msm_time = start_timer!(|| "MSM to compute commitment to random poly");
+        let random_commitment =
+            VariableBaseMSM::multi_scalar_mul(&powers.powers_of_gamma_g, random_ints.as_slice())
+                .into_affine();
+        end_timer!(msm_time);
+
+        commitment.add_assign_mixed(&random_commitment);
+
+        end_timer!(commit_time);
+        Ok((Commitment(commitment.into()), randomness))
+    }
+
     /// Compute witness polynomial.
     pub fn compute_witness_polynomial(
         p: &Polynomial<E::Fr>,

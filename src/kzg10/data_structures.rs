@@ -144,7 +144,7 @@ impl<E: PairingEngine> Randomness<E> {
     /// What is the degree of the hiding polynomial for a given hiding bound?
     #[inline]
     pub fn calculate_hiding_polynomial_degree(hiding_bound: usize) -> usize {
-        hiding_bound + 1
+        hiding_bound
     }
 }
 

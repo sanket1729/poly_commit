@@ -186,7 +186,7 @@ impl<E: PairingEngine> PCCommitment for Commitment<E> {
     Eq(bound = "")
 )]
 pub struct Randomness<E: PairingEngine> {
-    pub(crate) rand: kzg10::Randomness<E>,
+    pub rand: kzg10::Randomness<E>,
     pub(crate) shifted_rand: Option<kzg10::Randomness<E>>,
 }
 

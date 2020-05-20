@@ -102,6 +102,68 @@ impl<E: PairingEngine> MarlinKZG10<E> {
         end_timer!(acc_time);
         Ok((combined_comm, combined_value))
     }
+
+    /// Outputs a commitment to `polynomial`.
+    pub fn commit_with_rand<'a>(
+        ck: &<MarlinKZG10<E> as PolynomialCommitment<E::Fr>>::CommitterKey,
+        polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<'a, E::Fr>>,
+        blinding_poly: Polynomial<E::Fr>,
+        rng: Option<&mut dyn RngCore>,
+    ) -> Result<
+        (
+            Vec<LabeledCommitment<<MarlinKZG10<E> as PolynomialCommitment<E::Fr>>::Commitment>>,
+            Vec<<MarlinKZG10<E> as PolynomialCommitment<E::Fr>>::Randomness>,
+        ),
+        <MarlinKZG10<E> as PolynomialCommitment<E::Fr>>::Error,
+    > {
+        let commit_time = start_timer!(|| "Committing to polynomials");
+
+        let mut commitments = Vec::new();
+        let mut randomness = Vec::new();
+
+        let rng = &mut kzg10::optional_rng::OptionalRng(rng);
+        for p in polynomials {
+            let label = p.label();
+            let degree_bound = p.degree_bound();
+            let hiding_bound = p.hiding_bound();
+            let polynomial = p.polynomial();
+
+            // Self::Error::check_degrees_and_bounds(&ck, &p)?;
+
+            let commit_time = start_timer!(|| format!(
+                "Polynomial {} of degree {}, degree bound {:?}, and hiding bound {:?}",
+                label,
+                polynomial.degree(),
+                degree_bound,
+                hiding_bound,
+            ));
+
+            let (comm, rand) =
+                kzg10::KZG10::commit_with_rand(&ck.powers(), polynomial, hiding_bound, blinding_poly.clone(), Some(rng))?;
+            let (shifted_comm, shifted_rand) = if let Some(degree_bound) = degree_bound {
+                let shifted_powers = ck
+                    .shifted_powers(degree_bound)
+                    .ok_or(Error::UnsupportedDegreeBound(degree_bound))?;
+                let (shifted_comm, shifted_rand) =
+                    kzg10::KZG10::commit(&shifted_powers, &polynomial, hiding_bound, Some(rng))?;
+                (Some(shifted_comm), Some(shifted_rand))
+            } else {
+                (None, None)
+            };
+
+            let comm = Commitment { comm, shifted_comm };
+            let rand = Randomness { rand, shifted_rand };
+            commitments.push(LabeledCommitment::new(
+                label.to_string(),
+                comm,
+                degree_bound,
+            ));
+            randomness.push(rand);
+            end_timer!(commit_time);
+        }
+        end_timer!(commit_time);
+        Ok((commitments, randomness))
+    }
 }
 
 impl<E: PairingEngine> PolynomialCommitment<E::Fr> for MarlinKZG10<E> {
